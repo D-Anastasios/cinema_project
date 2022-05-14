@@ -1,0 +1,242 @@
+---
+title: "Shhh! i want to enjoy the movie!"
+output: html_document
+---
+---
+title: "Shhh! i want to enjoy the movie!"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+One of the most annoying things one can encounter is being in the cinema, trying to enjoy a movie and having people around that talk. In this study we will try to link talking to the cinema with personality traits. Specifically, we asked participants to report how often they talk to the cinema in a 7 point likert scale and we administered questionnaires regarding agreeableness and consciousness which are part of the big-five perosnality traits. In addition, we administered questionnaires regarding the dark triad which refer to narcissism - Machiavellianism and psychopathy. We mesured also attention impulsivity which is related to psychopathy. 
+
+Our main hypotheses are:
+
+**Hypothesis 1**: Narcissism will be related to talking to the cinema.
+**Hypothesis 2**: Psychopathy will be related to talking to cinema via a attention impulsivity
+**Hypothesis 3**: Agreeableness and consciousness will be relate to talking to the cinema.
+
+ 
+
+
+# Load libraries, set paths, load data
+*Libraries and paths*
+```{r, setup, include=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(fig.width = 8, collapse = TRUE)
+basepath="/Users/anastasiosdadiotes/Documents/fomo\ validation\ project/basepath"
+knitr::opts_knit$set(root.dir =basepath) # to check: getwd(), but note this only works from within chunksgetwd()
+
+```
+
+```{r label='paths and libraries', results='hide', warning=FALSE,message=FALSE}
+
+# Libraries
+library(psych)      # for descriptive statistics and exploratory factor analysis (also needs *GPAroation* installed, will load it automatically, but not give error if it's not installed; so make sure you install this together with dependencies)
+library(GPArotation)
+library(dplyr)      # for data handling
+library(data.table) # for re-arranging outputs of factor analysis to make nice plots (could be done in dplyr now, but not easily when originally coded)
+library(ggplot2)    # for plotting
+library(ggpubr)     # for plotting histograms
+library(PerformanceAnalytics) # for plotting correlations
+library(ggcorrplot) # for plotting correlations
+library(outliers)   # different test to detect outliers
+library(lavaan)     # for confirmatory factor analysis
+library(ltm)        # for cronbach a
+library(performance) # for inter-item correlation
+library(lavaanPlot) # for plotting lavaan objects
+library(semTools)   # for measurement invariance
+library(brms)       # for bayesian regression
+
+
+
+# Set paths
+plotFolder                     = file.path(basepath,'/results')
+statsFolder                    = file.path(basepath,'/figures')
+
+```
+
+
+*Read file *
+```{r label='load data', paged.print=FALSE, results="hide",warning=FALSE,message=FALSE, paged.print=FALSE}
+#read csv file with raw data
+setwd("~/Documents/cinema")
+df <- read.csv(file="cinemaDat.csv", header=TRUE, sep=";",dec=",")
+
+
+
+```
+
+#Mahalobi's distance - detecting outliers
+First check for multivariate outliers using mahalanobi's distance.  
+The Mahalanobis distance is the distance between two points in a multivariate space. It’s often used to find outliers in statistical analyses that involve several variables.
+To determine if any of the distances are statistically significant, we need to calculate their p-values.
+The p-value for each distance is calculated as the p-value that corresponds to the Chi-Square statistic of the Mahalanobis distance with k-1 degrees of freedom, where k = number of variables. **Typically a p-value that is less than .001 is considered to be an outlier.**
+
+
+*mahalanobis distance*
+```{r label='mahalanobis distance', paged.print=FALSE, results="hide",warning=FALSE,message=FALSE, paged.print=FALSE}
+my.data<-df %>% dplyr::select(ATTENTION, EXTR, AGR, CON, MAC, NARC, PSYCH, AffEmp, CoEmp)
+
+#check cor with outliers
+
+
+#create new column in data frame to hold Mahalanobis distances
+my.data$mahal <- mahalanobis(my.data, colMeans(my.data), cov(my.data))
+#create new column in data frame to hold p-value for each Mahalanobis distance 
+# df= k-1, k= number of variables that you use for testing 
+my.data$p <- pchisq(my.data$mahal, df=8, lower.tail=FALSE) 
+
+#for 8 df the critical value is 26.13
+
+#drop outliers
+df<-slice(df, -c(299, 257, 329,10, 131, 47))
+
+
+
+```
+
+In our sample, six participants can be considered as multivariate outliers according to mahalabis' distance!
+
+# Plots and Correlations
+#### Normal Distribution
+Next we will proceed by checking if our data follow the normal distribution. We will do this by checking skeweness and kirtosis and by also checking the qq plots for each variables. For sample sizes greater than 300, depend on the absolute values of skewness and kurtosis without considering z-values. Either an absolute skew value larger than 2 or an absolute kurtosis (proper) larger than 7 may be used as reference values for determining substantial non-normality. For more information see: Statistical notes for clinical researchers: assessing normal distribution (2) using skewness and kurtosis (Kim, 2013)
+
+#### Correlations 
+Next we will check the correlations. As our depended variable (talking to cinema) is ordinal we will use sperman sho as method. We will also plot the correlation, scatter plots and histograms of the variables of intererest.
+
+
+*Descriptives statistics, plots and correlations*
+```{r label= 'Descriptives statistics, plots and correlations' , paged.print=FALSE, results="hide",warning=FALSE,message=FALSE}
+
+my.data<-df %>% dplyr::select(food, cell, Talk, ATTENTION, EXTR, AGR, CON, MAC, NARC, PSYCH, AffEmp, CoEmp)
+describe(my.data)
+
+#plot qq plots for normality
+qq.plots<-list()
+
+qq.plots$ATTENTION<-ggqqplot(df$ATTENTION, ylab = "Attentional Impulsiveness")
+qq.plots$EXTR<-ggqqplot(df$EXTR, ylab = "Extraversion")
+qq.plots$CON<-ggqqplot(df$CON, ylab = "consientousness")
+qq.plots$AGR<-ggqqplot(df$AGR, ylab = "Agreeableness")
+qq.plots$MAC<-ggqqplot(df$MAC, ylab = "Maciavelism")
+qq.plots$NARC<-ggqqplot(df$NARC, ylab = "Narcissism")
+qq.plots$PSYCH<-ggqqplot(df$PSYCH, ylab = "Psychopathy")
+qq.plots$AffEmp<-ggqqplot(df$AffEmp, ylab = "Affective Empathy")
+qq.plots$CoEmp<-ggqqplot(df$CoEmp, ylab = "Cognitive Empathy")
+
+plot.normality<-ggarrange(qq.plots$ATTENTION,qq.plots$EXTR,qq.plots$CON,qq.plots$AGR,qq.plots$MAC,qq.plots$NARC, qq.plots$PSYCH,qq.plots$AffEmp, qq.plots$CoEmp, nrow = 3,ncol=3, hjust = 0)
+plot(plot.normality)
+
+
+#cordata
+cordata<-(my.data)
+
+#plot correlation
+chart.Correlation(cordata, method =  "spearman", histogram = TRUE, pch=19)
+
+cordata<-(my.data)
+
+
+```
+
+
+# Hypotheses Testing
+In the next step we will check our hypotheses.
+
+#### Hypothesis 1.
+The first hypothesis states that narcissism will be related to talking in cinema.
+To test this hypothesis we will use Bayesian regression. We will use talking as depended variable and narcissism as the regressor. Moreover, we will control for covoriates of no interest such as age, gender and education. We will use education as monotonic predictor. Since talking is an ordinal variable we will use family = "cumulative". We will assess if the **one-tailed 95% Bayesian credible intervals of the regression weights exclude zero (significant) or include zero (not significant)**.
+
+
+```{r label= 'Hypothesis 1' , paged.print=FALSE, warning=FALSE,message=FALSE}
+
+
+# Settings for BRMS
+niter=8000
+nchains=4
+adaptdeltas=0.9
+
+
+
+
+library(brms)
+h1.<-brm(formula=Talk
+                   ~1 + NARC+gender+age+mo(educ), data=df,save_all_pars = TRUE, family='cumulative',iter=niter,chains=nchains,cores=nchains,control=list(adapt_delta=adaptdeltas))
+
+summary(h1.)
+
+
+```
+
+
+#### Hypothesis 2.
+
+
+Hypothesis 2 states that psychopathy is related to talking via attentions impulsivity. To test this hypothesis we will use psychopathy as a predictor, talking as independent variable and attention implulsivity as mediator. We will treat the afforementioned variables as latent variables extracted by the observed variables (the items of each questionnaire). Since both the items as well as the dependend variable are ordinal we will use  DWLS estimator which is suitable for ordinal data, (see Mîndrilă, 2010; Cheng-Hsien Li, 2016)
+
+To assess good-fitting of the model χ2 and its degrees of freedom (df) were used. For χ2 values associated with p>0,5 were considered good-fitting models, although it has to be mentioned that the p value of this test is sensitive to large sample size. In addition, the root mean square error of approximation (RMSEA) with its 90% confidence intervals (CI), the standardized root mean square residuals (SRMR) and the comparative fit index (CFI) were used. For RMSEA and SRMR values  values < 0.08 are acceptable. For CFI values  > 0.90 were considered as indicators of good fit (Brown, 2006).
+
+Regarding the mediation, we computed the cross product of the two direct paths coefficient to obtain the indirect path coefficient.   Statistical significance level was set at α=0.05. 
+
+```{r label= 'Hypothesis 2' , paged.print=FALSE, warning=FALSE,message=FALSE}
+model2<-'
+         psych=~Psych1+Psych2_r+Psych3+Psych4+Psych5+Psych6+Psych7_r+Psych8+Psych9
+         
+
+
+Attentio=~Att1+Att2+Att3_r+Att4+Att5_r+Att6+Att7+Att8
+       Attentio~a*psych
+    
+         Talk~b*Attentio
+         Talk~c*psych
+       
+         
+          ab :=a*b
+total :=c+(a*b)
+
+'
+
+sem.fit2 <- sem(model2, data=df ,estimator = "DWLS")
+summary(sem.fit2, fit.measures=TRUE, standardized = TRUE,rsq=TRUE)
+lavaanPlot(model=sem.fit2, coefs = TRUE, stars = "regress", digits = 2, stand = TRUE)
+
+```
+
+
+#### Hypothesis 3
+
+Hypothesis 3 states that Agreeableness and consciousness will be relate to talking to the cinema. To test this hypothesis we will do model comparison. Models give means of putting scientific hypotheses into practice; as a result, model comparison and hypothesis testing are intertwined (Bruno Nicenboim, Daniel Schad, and Shravan Vasishth, 2022).  
+The Bayes factor reflects a ratio that provides information about how much more likely the observed data are between two compared models. Bayes factor greater than 1 provides evidence in support of one model over the other. We will use Bayes factor to compare the model described in the above-mentioned hypothesis while controlling for covariates of no interesting, against a null model that involves only the intercept without any predictor and only covariates of no interested (age, gender and education treated as monotonic). For more information see vignettes/bayes_factors.Rmd
+https://easystats.github.io/bayestestR/articles/bayes_factors.html
+
+Also for more information regarding model comparison see:
+
+1.   Makowski D, Ben-Shachar MS, Lüdecke D. bayestestR: Describing Effects and their Uncertainty, Existence and Significance within the Bayesian Framework. J Open Source Softw. 2019 Aug 13;4(40):1541. 
+2. 	Vehtari A, Gelman A, Gabry J. Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. Stat Comput. 2017 Sep;27(5):1413–32. 
+
+
+```{r label= 'Hypothesis 3' , paged.print=FALSE, warning=FALSE,message=FALSE}
+
+
+#fit the null model
+null.h3<-brm(formula=Talk
+                   ~1 + +gender+age+mo(educ), data=df,save_all_pars = TRUE, family='cumulative',iter=niter,chains=nchains,cores=nchains,control=list(adapt_delta=adaptdeltas))
+summary(null.h3)
+        
+
+#fit the h3 model
+h3.<-brm(formula=Talk
+                   ~1 + AGR+CON+gender+age+mo(educ), data=df,save_all_pars = TRUE, family='cumulative',iter=niter,chains=nchains,cores=nchains,control=list(adapt_delta=adaptdeltas))
+
+summary(h3.)
+
+
+
+# Compute Bayes factor
+bayes_factor(h3., null.h3)
+
+
+```
